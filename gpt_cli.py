@@ -4,6 +4,7 @@ import sys
 import subprocess
 import datetime
 import json
+import re
 
 def check_openai_installation():
     try:
@@ -78,11 +79,31 @@ Return ONLY the complete bash script code, without any explanations or markdown 
     except Exception as e:
         return f"An error occurred: {e}"
 
-def save_to_file(content):
+def save_to_file(content, prompt):
     script_dir = os.path.dirname(os.path.abspath(__file__))
+    scripts_dir = os.path.join(script_dir, "scripts")
+    
+    # Create the scripts directory if it doesn't exist
+    if not os.path.exists(scripts_dir):
+        os.makedirs(scripts_dir)
+
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"gpt_output_{timestamp}.sh"
-    filepath = os.path.join(script_dir, filename)
+    
+    # Extract keywords from the prompt
+    keywords = re.findall(r'\b\w+\b', prompt.lower())
+    common_words = set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'up', 'about', 'into', 'over', 'after'])
+    meaningful_words = [word for word in keywords if word not in common_words]
+    
+    # Use the first two meaningful words for the filename, or 'script' if none are found
+    if len(meaningful_words) >= 2:
+        name_part = f"{meaningful_words[0]}_{meaningful_words[1]}"
+    elif len(meaningful_words) == 1:
+        name_part = meaningful_words[0]
+    else:
+        name_part = "script"
+    
+    filename = f"{name_part}_{timestamp}.sh"
+    filepath = os.path.join(scripts_dir, filename)
     
     with open(filepath, 'w') as file:
         file.write(content)
@@ -151,7 +172,7 @@ def main():
         return
 
     response = generate_text(args.prompt, api_key)
-    filepath = save_to_file(response)
+    filepath = save_to_file(response, args.prompt)
     print(f"Bash script saved to: {filepath}")
     print("Running the generated script...")
     run_script(filepath)
